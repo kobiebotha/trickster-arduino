@@ -15,6 +15,7 @@ What's In This Folder?
 Getting Started on OSX
 =======================
 
+1. Set yourself up with Stino! https://github.com/Robot-Will/Stino
 1. Checkout this code :P
 1. Follow these settings to get started: http://arduino.cc/en/guide/macOSX#toc2
 1. Be aware of this issue when uploading your sketch: https://stackoverflow.com/questions/19765037/arduino-sketch-upload-issue-avrdude-stk500-recv-programmer-is-not-respondi
