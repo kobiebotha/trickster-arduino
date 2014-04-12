@@ -17,8 +17,10 @@
 #define PinINPUT1        3
 #define PinINPUT0        2
 
-#define capPinResister   15
-#define capPinGroundCap  16
+#define capSensePinSend  15
+#define capSensePinRead  16
+#define capSenseWait     20
+#define capSenseSamples  10
 
 #define tNAK             15
 #define tENQ             5
@@ -47,12 +49,15 @@ unsigned int checksum;
 unsigned int checksum_trace;
 boolean ledState;
 int   j;
-unsigned long wait_time;
+unsigned long waitTimeLED;
+unsigned long waitTimeCapSense;
 long  capReading=0;
-CapacitiveSensor   cs_4_2 = CapacitiveSensor(capPinResister,capPinGroundCap); 
+CapacitiveSensor   capSense = CapacitiveSensor(capSensePinSend,capSensePinRead); 
 
 void setup() {
-
+  
+  capSense.set_CS_AutocaL_Millis(0xFFFFFFFF);
+  
   pinMode(PinLED,OUTPUT);
   pinMode(RS485Control,OUTPUT);
   digitalWrite(RS485Control,RS485Receive);
@@ -81,21 +86,21 @@ void setup() {
   
   j = 0;
   ledState = true; 
-  wait_time = millis();
+  waitTimeLED = millis();
+  waitTimeCapSense = millis();
 }
 
 void loop()
 {
-  capReading =  cs_4_2.capacitiveSensor(30);
   
-  if (digitalRead(PinINPUT0)==LOW){
+  if ((digitalRead(PinINPUT0)==LOW) |(capReading>1000)){
      binput = 49; 
   }
   else {                                                                                                                                                                                               
      binput = 48;
-  }
-
-   while (Serial.available() > 0){
+  };
+  
+  while (Serial.available() > 0){
     
      byte_receive=Serial.read();
      if (byte_receive==00){
@@ -144,7 +149,7 @@ void loop()
      }
 
   }
-  if ((millis()-wait_time)>=wait) {
+  if ((millis()-waitTimeLED)>=wait) {
     if (ledState){
       setPixelColor(1, Wheel( (j+1) % 255));
       j++;
@@ -152,7 +157,11 @@ void loop()
     else {
       setPixelColor(1,0,0,0);
     }
-    wait_time = millis();
+    waitTimeLED = millis();
+  }
+  if ((millis()-waitTimeCapSense)>=capSenseWait) {
+    capReading =  capSense.capacitiveSensor(capSenseSamples);
+    waitTimeCapSense = millis();
   }
 }
 
@@ -173,6 +182,7 @@ void sendData(byte type, byte address1,byte address2,byte data_type,byte code1,b
   unsigned int checksum_ACK;
   checksum_ACK=address1+address2+type+data_type+code1+code2+Sign+data1+data2+data3+data4+3;
 
+  Serial.flush();
   //UCSR0A=UCSR0A |(1 << TXC0);
 
   digitalWrite(RS485Control, RS485Transmit);  // Enable RS485 Transmit 
