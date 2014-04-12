@@ -9,9 +9,6 @@ CapacitiveSensor   cs_4_2 = CapacitiveSensor(15,16);
 
 #define debounceThreshold 5
 
-//We run in touch mode since proximity sensing isn't working
-int proximityMode = 0;
-
 // the highest value ever read from the sensor
 long max = 0;
 
@@ -22,7 +19,7 @@ int dbncCount = 0;
 boolean sensorOn = false;
 
 // length of moving average
-#define MOV_AVE_LEN 2
+#define MOV_AVE_LEN 5
 
 // moving average values
 long maSamples[MOV_AVE_LEN];
@@ -31,16 +28,12 @@ long maSamples[MOV_AVE_LEN];
 long ma;
 
 // the moving average counter 
-long maCount = 0;
+int maCount = 0;
 
 void setup()                    
 {
    cs_4_2.set_CS_AutocaL_Millis(0xFFFFFFFF);     // turn off autocalibrate on channel 1 - just as an example
-   Serial.begin(115200);
-}
-
-void proximityLoop() {
-    //TODO: Implement once the sensor works
+   Serial.begin(9600);
 }
 
 boolean toggle(boolean state) {
@@ -68,10 +61,18 @@ void touchLoop() {
     //long total1 = cs_4_2.capacitiveSensor(10);
     int i = 0;
 
-    for (i = 0; i < MOV_AVE_LEN; i++) {
-        maSamples[i] = cs_4_2.capacitiveSensor(5);;
+    if (maCount == MOV_AVE_LEN - 1) {
+        maCount = 0;
     }
+    else {
+        maCount++;
+    }
+
+    maSamples[maCount] = cs_4_2.capacitiveSensor(5);
+// 
     double total1 = average(maSamples);
+
+    //long total1 = cs_4_2.capacitiveSensor(5);
 
     if (total1 > max) {
         max = total1;
@@ -90,6 +91,9 @@ void touchLoop() {
     Serial.print("\t sensr=");
     Serial.print(sensorOn);
 
+    Serial.print("\t maCount=");
+    Serial.print(maCount);
+
     Serial.print("\t max=");
     
     Serial.println(max);
@@ -100,10 +104,5 @@ void touchLoop() {
 
 void loop()                    
 {
-    if (proximityMode) {
-       proximityLoop();
-   } 
-   else { 
     touchLoop();
-    }
 }
