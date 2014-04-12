@@ -5,4 +5,4 @@ trickster-arduino
 
 * mastercode - Arduino Mega master module
 
-See the README in each subfolder for details
+See the README in each subfolder for details and code
