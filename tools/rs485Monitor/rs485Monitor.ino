@@ -10,7 +10,7 @@
 
 #define Pin13LED         13
 
-#define mybaud           19200
+#define mybaud           14400
 
 
 SoftwareSerial RS485Serial(SSerialRX, SSerialTX); // RX, TX
@@ -43,13 +43,9 @@ void loop()   /****** LOOP: RUNS CONSTANTLY ******/
   //Copy input data to output  
   if (RS485Serial.available()) 
   {
-    i = i+1;
-    if ( i >= 15) {
-       Serial.println(" ");
-       i = 0;
-    }
     byteSend = RS485Serial.read();   // Read the byte
-
+    if (byteSend == 00)
+             Serial.println(" ");
     Serial.write(byteSend); // Send the byte back
 
   }// End If RS485SerialAvailable

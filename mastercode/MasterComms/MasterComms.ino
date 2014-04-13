@@ -19,7 +19,7 @@
 #define tENQ             5
 #define tACK             6
 
-#define mybaud           38400
+#define mybaud           14400
 #define numSlaves        16
 #define packetSize       15
 
@@ -60,15 +60,16 @@ void setup() {
     slavedata[i][3] = 48;
   }
   slaveState=0xF0F0F0F0;
-  wait_time = 1000000000 / mybaud * packetSize * 8 * 2;
+  wait_time = 1000000 / mybaud * packetSize * 8 * 2;
   wait_time = wait_time/1000;
+  //wait_time = 1000;
 
-  if (wait_time <=500)  
+  /*if (wait_time <=500)  
     wait_time=1;
   else if ((wait_time >500) && (wait_time <=1000))
     wait_time=2;
   else if (wait_time >1000)
-    wait_time=wait_time/1000; 
+    wait_time=wait_time/1000; */
   
 }
 
@@ -134,21 +135,25 @@ void loop()
     Serial.print(" ");
     Serial.println(bitRead(slaveStatet,i+((i/4)*4))); */
     previous_time=millis();
-    while (((millis()-previous_time)<wait_time) && (Serial1.available()<15)){
+   // while (((millis()-previous_time)<wait_time) && (Serial1.available()<15)){
+    while (((millis()-previous_time)<wait_time)){
     }
     //delay(2000);
     //Did we receive a packet?
     if (Serial1.available()>=15){
       if (receiveMSG()==1){
         //Did we receive a ACK and from this slave?
-        address=(hex2num(rxdata[0])<<4)+(hex2num(rxdata[1]));
+         if (rxdata[0] == 49)
+           address=10+hex2num(rxdata[1]);
+         else
+           address=hex2num(rxdata[1]);
         if ((rxdata[2]==tACK) && (address == i )){
           //Read data back
           if (rxdata[10] == 49){
-            if (bitRead(slaveState,i+((i/4)*8)))
-              bitClear(slaveState,i+((i/4)*8));
+            if (bitRead(slaveState,i+((i/4)*4)))
+              bitClear(slaveState,i+((i/4)*4));
             else
-              bitSet(slaveState,i+((i/4)*8));
+              bitSet(slaveState,i+((i/4)*4));
           }  
         }
       }
@@ -226,7 +231,7 @@ void sendData(byte type, byte address1,byte address2,byte data_type,byte code1,b
   //UCSR0A=UCSR0A |(1 << TXC0);
 
   digitalWrite(RS485Control, RS485Transmit);  // Enable RS485 Transmit
-  //digitalWrite(PinLED,HIGH);
+  digitalWrite(PinLED,HIGH);
   delay(1);
 
   Serial1.write(0);
@@ -247,7 +252,7 @@ void sendData(byte type, byte address1,byte address2,byte data_type,byte code1,b
   //while (!(UCSR0A & (1 << TXC0)));
   Serial1.flush();
   digitalWrite(RS485Control, RS485Receive);
-  //digitalWrite(PinLED,LOW);  // Disable RS485 Transmit   
+  digitalWrite(PinLED,LOW);  // Disable RS485 Transmit   
 }
 
 

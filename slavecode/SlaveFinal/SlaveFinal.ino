@@ -33,7 +33,7 @@
 #define numPixels        1
 #define wait             80
 
-#define mybaud           19200
+#define mybaud           14400
 
 int  myID;
 byte  binput;
@@ -87,7 +87,7 @@ void setup() {
   myID = myID + 2 * !digitalRead(PinADDR1);
   myID = myID + 4 * !digitalRead(PinADDR2); 
   myID = myID + 8 * !digitalRead(PinADDR3);   
-  
+  //Serial.println(myID);
   j = 0;
   ledState = true; 
   waitTimeLED = millis();
@@ -126,10 +126,17 @@ void loop()
        checksum_trace=checksum_trace+byte_receive;
        cont1=cont1+1;
        state=0;
+       //Serial.print("CT: ");
+       //Serial.print(checksum_trace);
+       //Serial.print("C: ");
+       //Serial.println(checksum);       
        if (checksum_trace==checksum){
          trace_OK=1;
-     
-         address=(hex2num(data[0])<<4)+(hex2num(data[1]));
+         if (data[0] == 49)
+           address=10+hex2num(data[1]);
+         else
+           address=hex2num(data[1]);
+         //Serial.println(address);
          function=data[3];
          function_code=(hex2num(data[4])<<4)+(hex2num(data[5]));
          data_received=(hex2num(data[7])<<12)+(hex2num(data[8])<<8)+(hex2num(data[9])<<4)+(hex2num(data[10]));
@@ -142,15 +149,15 @@ void loop()
          slaveState|=data[7];
          if (address==myID){
            if ((function=='D') && (function_code==0) && data[2]==tENQ){
-             if (bitRead(slaveState,myID+((myID/4)*8))){
+             if (bitRead(slaveState,myID+((myID/4)*4))){
                digitalWrite(PinLED,HIGH);
                ledState = true;
-               sendACK(data[0],data[1],data[3],data[4],data[5],data[6],255,255,255,binput);
+               sendACK(data[0],data[1],data[3],data[4],data[5],data[6],48,48,48,binput);
              } else {
                digitalWrite(PinLED,LOW);
                ledState = false;
                j=0;
-               sendACK(data[0],data[1],data[3],data[4],data[5],data[6],255,255,255,binput);
+               sendACK(data[0],data[1],data[3],data[4],data[5],data[6],48,48,48,binput);
              }
            }
          }
@@ -193,10 +200,10 @@ void sendData(byte type, byte address1,byte address2,byte data_type,byte code1,b
   unsigned int checksum_ACK;
   checksum_ACK=address1+address2+type+data_type+code1+code2+Sign+data1+data2+data3+data4+3;
 
-  Serial.flush();
   //UCSR0A=UCSR0A |(1 << TXC0);
 
-  digitalWrite(RS485Control, RS485Transmit);  // Enable RS485 Transmit 
+  digitalWrite(RS485Control, RS485Transmit);  // Enable RS485 Transmit
+  digitalWrite(PinLED,HIGH);  // Disable RS485 Transmit   
   delay(1);
 
   Serial.write(0);
@@ -216,7 +223,8 @@ void sendData(byte type, byte address1,byte address2,byte data_type,byte code1,b
   Serial.write(((checksum_ACK)&255));
   //while (!(UCSR0A & (1 << TXC0)));
   Serial.flush();
-  digitalWrite(RS485Control, RS485Receive);  // Disable RS485 Transmit   
+  digitalWrite(RS485Control, RS485Receive);  // Disable RS485 Transmit
+  digitalWrite(PinLED,LOW);  // Disable RS485 Transmit    
 }
 
 
