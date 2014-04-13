@@ -19,7 +19,7 @@
 
 #define capSensePinSend  15
 #define capSensePinRead  16
-#define capSenseWait     20
+#define capSenseWait     200
 #define capSenseSamples  10
 
 #define tNAK             15
@@ -33,6 +33,8 @@
 #define numPixels        1
 #define wait             80
 
+#define mybaud           19200
+
 int  myID;
 byte  binput;
 
@@ -41,6 +43,7 @@ byte  address;
 byte  function;
 byte  function_code;
 unsigned int data_received;
+uint32_t slaveState;
 byte  byte_receive;
 byte  state=0;
 byte  cont1=1;
@@ -52,7 +55,8 @@ int   j;
 unsigned long waitTimeLED;
 unsigned long waitTimeCapSense;
 long  capReading=0;
-CapacitiveSensor   capSense = CapacitiveSensor(capSensePinSend,capSensePinRead); 
+CapacitiveSensor   capSense = CapacitiveSensor(capSensePinSend,capSensePinRead);
+
 
 void setup() {
   
@@ -62,7 +66,7 @@ void setup() {
   pinMode(RS485Control,OUTPUT);
   digitalWrite(RS485Control,RS485Receive);
   
-  Serial.begin(4800);
+  Serial.begin(mybaud);
   
   pinMode(ledB,OUTPUT);
   pinMode(ledR,OUTPUT);
@@ -129,17 +133,24 @@ void loop()
          function=data[3];
          function_code=(hex2num(data[4])<<4)+(hex2num(data[5]));
          data_received=(hex2num(data[7])<<12)+(hex2num(data[8])<<8)+(hex2num(data[9])<<4)+(hex2num(data[10]));
+         slaveState=data[10];
+         slaveState<<=8;
+         slaveState|=data[9];
+         slaveState<<=8;
+         slaveState|=data[8];
+         slaveState<<=8;
+         slaveState|=data[7];
          if (address==myID){
            if ((function=='D') && (function_code==0) && data[2]==tENQ){
-             if (data_received==1){
+             if (bitRead(slaveState,myID+((myID/4)*8))){
                digitalWrite(PinLED,HIGH);
                ledState = true;
-               sendACK(data[0],data[1],data[3],data[4],data[5],data[6],48,48,48,binput);
-             }else if (data_received==0){
+               sendACK(data[0],data[1],data[3],data[4],data[5],data[6],255,255,255,binput);
+             } else {
                digitalWrite(PinLED,LOW);
                ledState = false;
                j=0;
-               sendACK(data[0],data[1],data[3],data[4],data[5],data[6],48,48,48,binput);
+               sendACK(data[0],data[1],data[3],data[4],data[5],data[6],255,255,255,binput);
              }
            }
          }

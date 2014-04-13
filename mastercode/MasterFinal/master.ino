@@ -1,6 +1,5 @@
 #include "master.h"
 
-
 master::master()
 { 
   curAddr = 0;
@@ -14,7 +13,7 @@ void master::busSetup(void)
   
   digitalWrite(RS485Control, RS485Receive);  // Init Transceiver   
   
-  Serial1.begin(baud);   // set the data rate 
+  Serial1.begin(mybaud);   // set the data rate 
   
   for (byte i = 0 ; i < numSlaves; i++){
     state[i] = 0;
@@ -43,9 +42,9 @@ void master::stateMachine(void)
   Serial1.flush();
   //Send ENQ to slaves
   if ( curAddr < 10 ) {
-    sendMSG(48,i+48,68,48,48,32,slavedata[curAddr][0],slavedata[curAddr][1],slavedata[curAddr][2],slavedata[curAddr][3]);
+    sendMSG(48,curAddr+48,68,48,48,32,slavedata[curAddr][0],slavedata[curAddr][1],slavedata[curAddr][2],slavedata[curAddr][3]);
   } else {
-    sendMSG(49,i+48,68,48,48,32,slavedata[curAddr][0],slavedata[curAddr][1],slavedata[curAddr][2],slavedata[curAddr][3]);
+    sendMSG(49,curAddr+48,68,48,48,32,slavedata[curAddr][0],slavedata[curAddr][1],slavedata[curAddr][2],slavedata[curAddr][3]);
   }
   //Wait for reply
   wait_time = 1000000 / baud * packetSize * 8 * 2;

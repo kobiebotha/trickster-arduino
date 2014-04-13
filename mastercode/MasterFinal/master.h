@@ -12,7 +12,7 @@
 #define tENQ             5
 #define tACK             6
 
-#define baud             4800
+#define mybaud           4800
 #define numSlaves        2
 #define packetSize       15
 
