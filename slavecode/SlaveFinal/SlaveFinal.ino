@@ -35,8 +35,11 @@
 
 #define mybaud           14400
 
+#define MOV_AVE_LEN       5
+#define debounceThreshold 5
+
 int  myID;
-byte  binput;
+byte  binput = 48;
 
 byte  data[12];
 byte  address;
@@ -54,8 +57,69 @@ boolean ledState;
 int   j;
 unsigned long waitTimeLED;
 unsigned long waitTimeCapSense;
-long  capReading=0;
 CapacitiveSensor   capSense = CapacitiveSensor(capSensePinSend,capSensePinRead);
+
+
+// the highest value ever read from the sensor
+long max = 0;
+
+// debounce counter
+int dbncCount = 0;
+
+// sensor on or off - reported to master
+boolean sensorOn = false;
+
+// moving average values
+long maSamples[MOV_AVE_LEN];
+
+// the moving average
+long ma;
+
+// the moving average counter 
+int maCount = 0;
+
+
+boolean toggle(boolean state) {
+    if (state == false) {
+        return true;
+    }
+    return false;
+}
+
+double average(long array[MOV_AVE_LEN]) {
+    int i = 0;
+    double result = 0;
+    for (i = 0; i < MOV_AVE_LEN; i++) {
+        result += array[i];
+    }
+    return result / MOV_AVE_LEN;
+}
+
+void touchLoop() {
+
+    if (maCount == MOV_AVE_LEN - 1) {
+        maCount = 0;
+    }
+    else {
+        maCount++;
+    }
+
+    maSamples[maCount] = capSense.capacitiveSensor(5);
+
+    double capReading = average(maSamples);
+
+    if (capReading > max) {
+        max = capReading;
+    }
+
+    if (capReading >= max*0.85) {
+        dbncCount++;
+        if (dbncCount >= debounceThreshold) {
+          sensorOn = toggle(sensorOn);
+          dbncCount=0;
+        }
+    }
+}
 
 
 void setup() {
@@ -97,7 +161,8 @@ void setup() {
 void loop()
 {
   
-  if ((digitalRead(PinINPUT0)==LOW) |(capReading>1000)){
+  //if ((digitalRead(PinINPUT0)==LOW) | sensorOn ){
+  if (sensorOn){
      binput = 49; 
   }
   else {                                                                                                                                                                                               
@@ -152,10 +217,12 @@ void loop()
              if (bitRead(slaveState,myID+((myID/4)*4))){
                digitalWrite(PinLED,HIGH);
                ledState = true;
+               sensorOn = true;
                sendACK(data[0],data[1],data[3],data[4],data[5],data[6],48,48,48,binput);
              } else {
                digitalWrite(PinLED,LOW);
                ledState = false;
+               sensorOn = false;
                j=0;
                sendACK(data[0],data[1],data[3],data[4],data[5],data[6],48,48,48,binput);
              }
@@ -168,7 +235,7 @@ void loop()
 
   }
   if ((millis()-waitTimeLED)>=wait) {
-    if (ledState){
+    if (sensorOn){
       setPixelColor(1, Wheel( (j+1) % 255));
       j++;
     }
@@ -177,10 +244,11 @@ void loop()
     }
     waitTimeLED = millis();
   }
-  if ((millis()-waitTimeCapSense)>=capSenseWait) {
-    capReading =  capSense.capacitiveSensor(capSenseSamples);
-    waitTimeCapSense = millis();
-  }
+  //if ((millis()-waitTimeCapSense)>=capSenseWait) {
+  //  capReading =  capSense.capacitiveSensor(capSenseSamples);
+  //  waitTimeCapSense = millis();
+  //}
+  touchLoop();
 }
 
 void sendMSG(byte address1,byte address2,byte data_type,byte code1,byte code2,byte Sign,byte data1,byte data2,byte data3,byte data4){

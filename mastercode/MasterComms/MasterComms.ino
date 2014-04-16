@@ -62,7 +62,7 @@ void setup() {
   slaveState=0xF0F0F0F0;
   wait_time = 1000000 / mybaud * packetSize * 8 * 2;
   wait_time = wait_time/1000;
-  //wait_time = 1000;
+  wait_time = 40;
 
   /*if (wait_time <=500)  
     wait_time=1;
@@ -149,12 +149,15 @@ void loop()
            address=hex2num(rxdata[1]);
         if ((rxdata[2]==tACK) && (address == i )){
           //Read data back
-          if (rxdata[10] == 49){
-            if (bitRead(slaveState,i+((i/4)*4)))
+          if (rxdata[10] == 49)
+            bitSet(slaveState,i+((i/4)*4));
+          else
+            bitClear(slaveState,i+((i/4)*4));
+            /*if (bitRead(slaveState,i+((i/4)*4)))
               bitClear(slaveState,i+((i/4)*4));
             else
-              bitSet(slaveState,i+((i/4)*4));
-          }  
+              bitSet(slaveState,i+((i/4)*4));*/
+          //}  
         }
       }
     }
