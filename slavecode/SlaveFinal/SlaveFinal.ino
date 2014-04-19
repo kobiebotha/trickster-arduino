@@ -7,15 +7,15 @@
 
 #define PinLED           13
 
-#define PinADDR0         9
-#define PinADDR1         8
-#define PinADDR2         7
-#define PinADDR3         6
+#define PinADDR0         2
+#define PinADDR1         3
+#define PinADDR2         4
+#define PinADDR3         5
 
-#define PinINPUT3        5
-#define PinINPUT2        4
-#define PinINPUT1        3
-#define PinINPUT0        2
+#define PinINPUT3        6
+#define PinINPUT2        7
+#define PinINPUT1        8
+#define PinINPUT0        9
 
 #define capSensePinSend  15
 #define capSensePinRead  16
@@ -36,7 +36,9 @@
 #define mybaud           14400
 
 #define MOV_AVE_LEN       5
-#define debounceThreshold 5
+#define debounceDelay     250
+
+#define calTime            1000
 
 int  myID;
 byte  binput = 48;
@@ -57,17 +59,22 @@ boolean ledState;
 int   j;
 unsigned long waitTimeLED;
 unsigned long waitTimeCapSense;
+unsigned long lastDebounceTime;
 CapacitiveSensor   capSense = CapacitiveSensor(capSensePinSend,capSensePinRead);
 
 
 // the highest value ever read from the sensor
 long max = 0;
+long min = 0;
 
 // debounce counter
 int dbncCount = 0;
 
 // sensor on or off - reported to master
 boolean sensorOn = false;
+boolean sensorState = false;
+boolean lastSensorState = false;
+boolean allowChange = true;
 
 // moving average values
 long maSamples[MOV_AVE_LEN];
@@ -96,6 +103,9 @@ double average(long array[MOV_AVE_LEN]) {
 }
 
 void touchLoop() {
+  
+    if (!sensorState)
+        allowChange = true;
 
     if (maCount == MOV_AVE_LEN - 1) {
         maCount = 0;
@@ -111,14 +121,69 @@ void touchLoop() {
     if (capReading > max) {
         max = capReading;
     }
-
-    if (capReading >= max*0.85) {
-        dbncCount++;
-        if (dbncCount >= debounceThreshold) {
-          sensorOn = toggle(sensorOn);
-          dbncCount=0;
-        }
+    
+    if (capReading < min) {
+        min = capReading;
     }
+    
+    boolean reading;
+
+    if (map(capReading,min,max,0,255) >= 150)
+      reading = true;
+    else
+      reading = false;
+   
+    if (reading != lastSensorState) {
+      // reset the debouncing timer
+      lastDebounceTime = millis();
+    }
+  
+    if ((millis() - lastDebounceTime) > debounceDelay) {
+      // whatever the reading is at, it's been there for longer
+      // than the debounce delay, so take it as the actual current state:
+  
+      // if the button state has changed:
+      if (reading != sensorState) {
+        sensorState = reading;
+      }
+    }
+    // save the reading.  Next time through the loop,
+    // it'll be the lastButtonState:
+    lastSensorState = reading;
+    //die moet nie gebeur terwyl die sensor hoog bly nie
+    
+    
+    
+    if (sensorState && allowChange) {
+        sensorOn = !sensorOn;
+        allowChange = false; 
+        if (!sensorOn){
+               ledState = false;
+               j=0;
+               binput=48;
+        } else
+               binput=49;
+    }
+    
+
+    
+    
+    
+       
+     
+    
+//    Serial.print("MIN :");
+//    Serial.print(min);
+//    Serial.print(" MAX :");
+//    Serial.print(max);
+//    Serial.print(" Reading :");
+//    Serial.print(capReading);
+//    Serial.print(" MAP :");
+//    Serial.print(map(capReading,min,max,0,255));
+//    Serial.print(" Constrain :");
+//    Serial.print(constrain(map(capReading,min,max,0,255),0,255));    
+//    Serial.print(" Sensor :");
+//    Serial.println(sensorOn);
 }
 
 
@@ -156,19 +221,21 @@ void setup() {
   ledState = true; 
   waitTimeLED = millis();
   waitTimeCapSense = millis();
+  
+  while (millis()-waitTimeCapSense <= calTime) {
+      min += capSense.capacitiveSensor(5);
+      dbncCount++;
+  }
+  
+  min = min/dbncCount;
+  dbncCount = 0;
+  max = min*2;
 }
 
 void loop()
 {
   
-  //if ((digitalRead(PinINPUT0)==LOW) | sensorOn ){
-  if (sensorOn){
-     binput = 49; 
-  }
-  else {                                                                                                                                                                                               
-     binput = 48;
-  };
-  
+ 
   while (Serial.available() > 0){
     
      byte_receive=Serial.read();
@@ -214,18 +281,23 @@ void loop()
          slaveState|=data[7];
          if (address==myID){
            if ((function=='D') && (function_code==0) && data[2]==tENQ){
-             if (bitRead(slaveState,myID+((myID/4)*4))){
+             if (bitRead(slaveState,myID+((myID/4)*4)) && !sensorOn && allowChange){
                digitalWrite(PinLED,HIGH);
                ledState = true;
                sensorOn = true;
+               binput = 49;
+               allowChange = false;
                sendACK(data[0],data[1],data[3],data[4],data[5],data[6],48,48,48,binput);
-             } else {
+             } else if (!bitRead(slaveState,myID+((myID/4)*4)) && sensorOn && allowChange) {
                digitalWrite(PinLED,LOW);
                ledState = false;
                sensorOn = false;
+               binput = 48;
+               allowChange = false;
                j=0;
                sendACK(data[0],data[1],data[3],data[4],data[5],data[6],48,48,48,binput);
-             }
+             } else
+               sendACK(data[0],data[1],data[3],data[4],data[5],data[6],48,48,48,binput);
            }
          }
        }else{
