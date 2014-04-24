@@ -1,5 +1,3 @@
-#include <LEDDisplay.h>
-
 #define RS485Control     20   //RS485 Direction control
 
 #define RS485Transmit    HIGH
@@ -25,6 +23,13 @@
 #define numSlaves        16
 #define packetSize       15
 
+#define btnRIGHT  0
+#define btnUP     1
+#define btnDOWN   2
+#define btnLEFT   3
+#define btnSELECT 4
+#define btnNONE   5
+
 byte            rxdata[packetSize-3];
 byte            slavedata[numSlaves][4];
 uint32_t        slaveState;
@@ -32,6 +37,10 @@ boolean         state[numSlaves];
 byte            address;
 unsigned long   previous_time;
 unsigned long   wait_time;
+char            prevBtn = 5;
+char            incomingByte = 0;
+byte            command = 0;        
+
 
 void setup() {
   
@@ -52,8 +61,7 @@ void setup() {
   pinMode(PinINPUT0,INPUT_PULLUP);
   pinMode(PinINPUT1,INPUT_PULLUP);
   pinMode(PinINPUT2,INPUT_PULLUP);
-  pinMode(PinINPUT3,INPUT_PULLUP);
-  LEDDisplaySetup();
+  pinMode(PinINPUT3,INPUT_PULLUP); 
 
   for (byte i = 0 ; i < numSlaves; i++){
     state[i] = 0;
@@ -62,23 +70,17 @@ void setup() {
     slavedata[i][2] = 48;
     slavedata[i][3] = 48;
   }
-  slaveState=0xF0F0F0F0;
+  slaveState = 0xF0F0F0F0;
   wait_time = 1000000 / mybaud * packetSize * 8 * 2;
   wait_time = wait_time/1000;
-  wait_time = 40;
-
-  /*if (wait_time <=500)  
-    wait_time=1;
-  else if ((wait_time >500) && (wait_time <=1000))
-    wait_time=2;
-  else if (wait_time >1000)
-    wait_time=wait_time/1000; */
+  wait_time = 40; // override to compensate for capsense
   
+  LEDDisplaySetup();
 }
 
 void loop()
 {
-  LEDDisplayLoop();
+ 
   //Sample inputs on main
   if (digitalRead(PinINPUT0)==LOW){
     state[0]=!state[0];
@@ -110,38 +112,15 @@ void loop()
     Serial1.flush();
     //Send ENQ to slaves
     if ( i < 10 ) {
-      //sendMSG(48,i+48,68,48,48,32,slavedata[i][0],slavedata[i][1],slavedata[i][2],slavedata[i][3]);
       sendMSG(48,i+48,68,48,48,32,(byte)slaveState,(byte)(slaveState>>8),(byte)(slaveState>>16),(byte)(slaveState>>24));      
     } else {
       sendMSG(49,i+48-10,68,48,48,32,(byte)slaveState,(byte)(slaveState>>8),(byte)(slaveState>>16),(byte)(slaveState>>24));
     }
-/*    uint32_t slaveStatet;
-    slaveStatet=(byte)(slaveState>>24);
-    slaveStatet<<=8;
-    slaveStatet|=(byte)(slaveState>>16);
-    slaveStatet<<=8;
-    slaveStatet|=(byte)(slaveState>>8);
-    slaveStatet<<=8;
-    slaveStatet|=(byte)slaveState;
-    //Wait for reply
-    Serial.print("BIT :");
-    Serial.print(i);
-    Serial.print("C");
-    Serial.print(i+((i/4)*4));
-    Serial.print(" ");
-    Serial.print((byte)(slaveState>>24));
-    Serial.print((byte)(slaveState>>16));
-    Serial.print((byte)(slaveState>>8));
-    Serial.print((byte)slaveState);
-    Serial.print(" ");
-    Serial.print(bitRead(slaveState,i+((i/4)*4)));
-    Serial.print(" ");
-    Serial.println(bitRead(slaveStatet,i+((i/4)*4))); */
     previous_time=millis();
+    LEDDisplayLoop();
    // while (((millis()-previous_time)<wait_time) && (Serial1.available()<15)){
     while (((millis()-previous_time)<wait_time)){
     }
-    //delay(2000);
     //Did we receive a packet?
     if (Serial1.available()>=15){
       if (receiveMSG()==1){
@@ -156,15 +135,12 @@ void loop()
             bitSet(slaveState,i+((i/4)*4));
           else
             bitClear(slaveState,i+((i/4)*4));
-            /*if (bitRead(slaveState,i+((i/4)*4)))
-              bitClear(slaveState,i+((i/4)*4));
-            else
-              bitSet(slaveState,i+((i/4)*4));*/
-          //}  
         }
       }
     }
   }
+  keyLoop();
+  sendPD();
 }
 
 byte receiveMSG(){
@@ -215,7 +191,15 @@ byte receiveMSG(){
 
 }
 
-
+void sendPD(void){
+  Serial.write(0x61);        
+  Serial.write(byte(slaveState));
+  Serial.write(byte(slaveState>>8));
+  Serial.write(byte(slaveState>>16));
+  Serial.write(byte(slaveState>>24));
+  Serial.write(command|0xF0);
+  Serial.write(0x62);
+}
 
 void sendMSG(byte address1,byte address2,byte data_type,byte code1,byte code2,byte Sign,byte data1,byte data2,byte data3,byte data4){
   sendData(tENQ,address1,address2,data_type,code1,code2,Sign,data1,data2,data3,data4); 
@@ -233,8 +217,6 @@ void sendData(byte type, byte address1,byte address2,byte data_type,byte code1,b
 
   unsigned int checksum_TX;
   checksum_TX=address1+address2+type+data_type+code1+code2+Sign+data1+data2+data3+data4+3;
-
-  //UCSR0A=UCSR0A |(1 << TXC0);
 
   digitalWrite(RS485Control, RS485Transmit);  // Enable RS485 Transmit
   digitalWrite(PinLED,HIGH);
@@ -255,7 +237,6 @@ void sendData(byte type, byte address1,byte address2,byte data_type,byte code1,b
   Serial1.write(3);
   Serial1.write(((checksum_TX>>8)&255));
   Serial1.write(((checksum_TX)&255));
-  //while (!(UCSR0A & (1 << TXC0)));
   Serial1.flush();
   digitalWrite(RS485Control, RS485Receive);
   digitalWrite(PinLED,LOW);  // Disable RS485 Transmit   
@@ -274,5 +255,44 @@ byte hex2num(byte x){
     result=x-55;    
   }
   return result;  
+}
+
+
+void keyLoop() 
+{
+  //The example shows using bytes on the serial port to move the menu. You can hook up your buttons or other controls.
+  
+  prevBtn = incomingByte;
+  incomingByte = read_LCD_buttons();
+  if ((incomingByte != btnNONE) & ( prevBtn != incomingByte))
+  switch( incomingByte )
+  {
+    case btnUP:
+      command = 2;
+      break;
+    case btnDOWN:
+      command = 3;
+      break;
+    case btnRIGHT:
+      command = 1;
+      break;
+    case btnLEFT:
+      command = 0;    
+      break;
+    default:
+      break;
+  }
+}
+
+int read_LCD_buttons()
+{
+ int adc_key_in = analogRead(0);
+ if (adc_key_in > 1000) return btnNONE;
+ if (adc_key_in < 50)   return btnRIGHT;  
+ if (adc_key_in < 250)  return btnUP; 
+ if (adc_key_in < 450)  return btnDOWN; 
+ if (adc_key_in < 650)  return btnLEFT; 
+ if (adc_key_in < 850)  return btnSELECT;  
+ return btnNONE;
 }
 

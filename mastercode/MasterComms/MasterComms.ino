@@ -31,6 +31,7 @@ byte            address;
 unsigned long   previous_time;
 unsigned long   wait_time;
 
+
 void setup() {
   
   pinMode(PinLED, OUTPUT);   
@@ -162,6 +163,7 @@ void loop()
       }
     }
   }
+  sendPD();
 }
 
 byte receiveMSG(){
@@ -212,7 +214,14 @@ byte receiveMSG(){
 
 }
 
-
+void sendPD(void){
+  Serial.write(0x61);        
+  Serial.write(byte(slaveState));
+  Serial.write(byte(slaveState>>8));
+  Serial.write(byte(slaveState>>16));
+  Serial.write(byte(slaveState>>24));
+  Serial.write(0x62);
+}
 
 void sendMSG(byte address1,byte address2,byte data_type,byte code1,byte code2,byte Sign,byte data1,byte data2,byte data3,byte data4){
   sendData(tENQ,address1,address2,data_type,code1,code2,Sign,data1,data2,data3,data4); 

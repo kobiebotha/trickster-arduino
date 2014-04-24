@@ -42,26 +42,32 @@ void LEDDisplaySetup() {
   pinMode(slatchPin, OUTPUT);
   pinMode(sbClockPin, OUTPUT);
   pinMode(sbDataPin, OUTPUT);
+  
+  ledRow = 0;
 }
 
 void LEDDisplayLoop() {
   int keyPress;
-  for (ledRow=0;ledRow<4;ledRow++){  
-    dataToSend = (~(1<<ledRow+4)& 0xF0) | (byte(slaveState>>(ledRow*8))&0x0F);
-    //sdataToSend = ~((1<<ledRow+4) | (1<<ledRow));
-    digitalWrite(latchPin, LOW);
-    //digitalWrite(slatchPin, LOW);   
-    for (ledBit=0;ledBit<8;ledBit++){
-      digitalWrite(bClockPin,LOW);
-      //digitalWrite(sbClockPin,LOW);
-      digitalWrite(bDataPin,((dataToSend>>ledBit)&1));
-      //digitalWrite(sbDataPin,((sdataToSend>>(7-ledBit))&1));
-      digitalWrite(bClockPin,HIGH);
-      //digitalWrite(sbClockPin,HIGH);
-    }
-    digitalWrite(latchPin, HIGH);
-    //digitalWrite(slatchPin, HIGH);    
+  dataToSend = (~(1<<ledRow+4)& 0xF0) | (byte(slaveState>>(ledRow*8))&0x0F);
+  //sdataToSend = ~((1<<ledRow+4) | (1<<ledRow));
+  digitalWrite(latchPin, LOW);
+  //digitalWrite(slatchPin, LOW);   
+  for (ledBit=0;ledBit<8;ledBit++){
+    digitalWrite(bClockPin,LOW);
+    //digitalWrite(sbClockPin,LOW);
+    digitalWrite(bDataPin,((dataToSend>>ledBit)&1));
+    //digitalWrite(sbDataPin,((sdataToSend>>(7-ledBit))&1));
+    digitalWrite(bClockPin,HIGH);
+    //digitalWrite(sbClockPin,HIGH);
   }
+  digitalWrite(latchPin, HIGH);
+  //digitalWrite(slatchPin, HIGH);
+  
+  ledRow++;
+  
+  if (ledRow >= 4)
+    ledRow = 0;
+
   
   
   if (kpd.getKeys())
