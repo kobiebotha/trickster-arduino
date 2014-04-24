@@ -199,6 +199,10 @@ void sendPD(void){
   Serial.write(byte(slaveState>>24));
   Serial.write(command|0xF0);
   Serial.write(0x62);
+  
+  if ((command == 2) | (command == 3))
+    command = 0;
+      
 }
 
 void sendMSG(byte address1,byte address2,byte data_type,byte code1,byte code2,byte Sign,byte data1,byte data2,byte data3,byte data4){
